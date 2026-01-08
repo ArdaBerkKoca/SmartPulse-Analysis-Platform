@@ -1,0 +1,6 @@
+@SmartPulseApi_HostAddress = http://localhost:5084
+
+GET {{SmartPulseApi_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
