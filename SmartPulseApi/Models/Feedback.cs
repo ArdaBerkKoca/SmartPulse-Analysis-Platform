@@ -9,18 +9,24 @@ namespace SmartPulseApi.Models
         public int Id { get; set; }
 
         [Column("customername")]
-        public string? CustomerName { get; set; }
+        public string CustomerName { get; set; } = string.Empty;
 
         [Column("content")]
         public string Content { get; set; } = string.Empty;
-
-        [Column("source")]
-        public string? Source { get; set; }
 
         [Column("createdat")]
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
         [Column("sentiment_score")]
         public string? SentimentScore { get; set; }
+
+        // İlişkiler (Foreign Keys)
+        [Column("company_id")]
+        public int CompanyId { get; set; }
+        public Company? Company { get; set; }
+
+        [Column("source_id")]
+        public int SourceId { get; set; }
+        public Source? Source { get; set; }
     }
 }

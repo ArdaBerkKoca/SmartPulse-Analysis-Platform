@@ -16,6 +16,30 @@ namespace SmartPulseApi.Data
                 return;
             }
 
+            // Önce örnek bir şirket ve kaynaklar oluşturalım (Eğer yoksa)
+            var defaultCompany = context.Companies.FirstOrDefault(c => c.Name == "Arda Analytics Corp");
+            if (defaultCompany == null)
+            {
+                defaultCompany = new Company { Name = "Arda Analytics Corp", Industry = "Tech" };
+                context.Companies.Add(defaultCompany);
+                context.SaveChanges();
+            }
+
+            // Rastgele kaynaklar için Source objeleri oluştur
+            var sourceNames = new[] { "Amazon", "Trendyol", "Hepsiburada", "Shopify", "eBay" };
+            var sources = new List<Source>();
+            foreach (var sourceName in sourceNames)
+            {
+                var source = context.Sources.FirstOrDefault(s => s.PlatformName == sourceName);
+                if (source == null)
+                {
+                    source = new Source { PlatformName = sourceName };
+                    context.Sources.Add(source);
+                }
+                sources.Add(source);
+            }
+            context.SaveChanges();
+
             var filePath = Path.Combine(Directory.GetCurrentDirectory(), "reviews.csv");
             if (!File.Exists(filePath)) 
             {
@@ -36,6 +60,7 @@ namespace SmartPulseApi.Data
 
             var feedbacks = new List<Feedback>();
             int count = 0;
+            var random = new Random();
 
             Console.WriteLine("--> CSV dosyası okunuyor...");
 
@@ -51,13 +76,15 @@ namespace SmartPulseApi.Data
 
                     if (!string.IsNullOrWhiteSpace(content))
                     {
-                        feedbacks.Add(new Feedback
+                        var feedback = new Feedback
                         {
                             CustomerName = string.IsNullOrWhiteSpace(title) ? "Anonim Müşteri" : title,
                             Content = content,
-                            Source = "Kaggle E-Commerce Dataset",
-                            CreatedAt = DateTime.UtcNow
-                        });
+                            CreatedAt = DateTime.UtcNow.AddDays(-random.Next(0, 30)), // Verileri son 30 güne rastgele dağıtır
+                            Company = defaultCompany, // String yerine obje atıyoruz
+                            Source = sources[random.Next(sources.Count)] // Rastgele bir Source objesi seçiyoruz
+                        };
+                        feedbacks.Add(feedback);
                         count++;
                     }
 
