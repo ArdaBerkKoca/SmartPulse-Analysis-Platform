@@ -10,6 +10,7 @@ namespace SmartPulseApi.Data
         public DbSet<Feedback> Feedbacks { get; set; }
         public DbSet<Company> Companies { get; set; }
         public DbSet<Source> Sources { get; set; }
+        public DbSet<User> Users { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {

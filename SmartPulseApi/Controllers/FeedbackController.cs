@@ -1,4 +1,5 @@
 using System.Linq;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using SmartPulseApi.Data;
@@ -7,6 +8,7 @@ using SmartPulseApi.Services; // SentimentService'i bulabilmesi için bu şart!
 
 namespace SmartPulseApi.Controllers
 {
+    [Authorize] // Artık bu Controller'daki tüm metodlar geçerli bir Token ister!
     [Route("api/[controller]")]
     [ApiController]
     public class FeedbackController : ControllerBase
@@ -52,28 +54,61 @@ namespace SmartPulseApi.Controllers
             return await _context.Feedbacks.ToListAsync();
         }
 
-        // GET: api/Feedback/summary (Duygu skoruna göre özet)
-        [HttpGet("summary")]
-        public async Task<IActionResult> GetSummary()
+        // GET: api/Feedback/companies
+        [HttpGet("companies")]
+        public async Task<IActionResult> GetCompanies()
         {
-            var summary = await _context.Feedbacks
-                .GroupBy(f => f.SentimentScore)
-                .Select(g => new
-                {
-                    Name = g.Key ?? "Unknown",
-                    Value = g.Count()
-                })
-                .ToListAsync();
-
-            return Ok(summary);
+            return Ok(await _context.Companies.ToListAsync());
         }
 
-        // GET: api/Feedback/source-distribution (Kaynaklara göre dağılım)
-        [HttpGet("source-distribution")]
-        public async Task<IActionResult> GetSourceDistribution()
+        // GET: api/Feedback/sources
+        [HttpGet("sources")]
+        public async Task<IActionResult> GetSources()
         {
-            var sourceData = await _context.Feedbacks
-                .Include(f => f.Source) // İlişkili tabloyu dahil etmeyi unutma!
+            return Ok(await _context.Sources.ToListAsync());
+        }
+
+// GET: api/Feedback/summary?companyId=1&sourceId=2
+[HttpGet("summary")]
+public async Task<IActionResult> GetSummary([FromQuery] int? companyId, [FromQuery] int? sourceId)
+{
+    // Sorguyu oluşturuyoruz ama henüz veritabanına göndermiyoruz (IQueryable)
+    var query = _context.Feedbacks.AsQueryable();
+
+    // Filtreleme mantığı
+    if (companyId.HasValue)
+        query = query.Where(f => f.CompanyId == companyId.Value);
+    
+    if (sourceId.HasValue)
+        query = query.Where(f => f.SourceId == sourceId.Value);
+
+    var summary = await query
+        .GroupBy(f => f.SentimentScore)
+        .Select(g => new
+        {
+            Name = g.Key ?? "Unknown",
+            Value = g.Count()
+        })
+        .ToListAsync();
+
+    return Ok(summary);
+}
+
+        // GET: api/Feedback/source-distribution?companyId=1&sourceId=2
+        [HttpGet("source-distribution")]
+        public async Task<IActionResult> GetSourceDistribution([FromQuery] int? companyId, [FromQuery] int? sourceId)
+        {
+            // Sorguyu oluşturuyoruz ama henüz veritabanına göndermiyoruz (IQueryable)
+            var query = _context.Feedbacks.Include(f => f.Source).AsQueryable();
+
+            // Filtreleme mantığı
+            if (companyId.HasValue)
+                query = query.Where(f => f.CompanyId == companyId.Value);
+            
+            if (sourceId.HasValue)
+                query = query.Where(f => f.SourceId == sourceId.Value);
+
+            var sourceData = await query
                 .GroupBy(f => f.Source != null ? f.Source.PlatformName : "Other") // Objenin içindeki PlatformName'e bak
                 .Select(g => new
                 {
@@ -86,11 +121,21 @@ namespace SmartPulseApi.Controllers
             return Ok(sourceData);
         }
 
-        // GET: api/Feedback/top-keywords (AI insights için basit kelime analizi)
+        // GET: api/Feedback/top-keywords?companyId=1&sourceId=2
         [HttpGet("top-keywords")]
-        public async Task<IActionResult> GetTopKeywords()
+        public async Task<IActionResult> GetTopKeywords([FromQuery] int? companyId, [FromQuery] int? sourceId)
         {
-            var contents = await _context.Feedbacks
+            // Sorguyu oluşturuyoruz ama henüz veritabanına göndermiyoruz (IQueryable)
+            var query = _context.Feedbacks.AsQueryable();
+
+            // Filtreleme mantığı
+            if (companyId.HasValue)
+                query = query.Where(f => f.CompanyId == companyId.Value);
+            
+            if (sourceId.HasValue)
+                query = query.Where(f => f.SourceId == sourceId.Value);
+
+            var contents = await query
                 .Where(f => !string.IsNullOrEmpty(f.Content))
                 .Select(f => f.Content.ToLower())
                 .ToListAsync();
@@ -112,14 +157,24 @@ namespace SmartPulseApi.Controllers
             return Ok(keywords);
         }
 
-        // GET: api/Feedback/trend (Son 30 günlük trend analizi)
+        // GET: api/Feedback/trend?companyId=1&sourceId=2
         [HttpGet("trend")]
-        public async Task<IActionResult> GetTrend()
+        public async Task<IActionResult> GetTrend([FromQuery] int? companyId, [FromQuery] int? sourceId)
         {
             var startDate = DateTime.UtcNow.AddDays(-30);
 
+            // Sorguyu oluşturuyoruz ama henüz veritabanına göndermiyoruz (IQueryable)
+            var query = _context.Feedbacks.AsQueryable();
+
+            // Filtreleme mantığı
+            if (companyId.HasValue)
+                query = query.Where(f => f.CompanyId == companyId.Value);
+            
+            if (sourceId.HasValue)
+                query = query.Where(f => f.SourceId == sourceId.Value);
+
             // 1. ADIM: Veriyi veritabanından ham tarih (Date) olarak çekiyoruz
-            var rawData = await _context.Feedbacks
+            var rawData = await query
                 .Where(f => f.CreatedAt >= startDate && f.SentimentScore != null)
                 .GroupBy(f => f.CreatedAt.Date) // PostgreSQL .Date kısmını anlayabilir
                 .Select(g => new
